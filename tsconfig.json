@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "lib": [
+      "es2018",
+      "es2017",
+      "dom",
+      "es6"
+    ],
+    "sourceMap": true,
+    "strict": true,
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "tmp/dist"
+  },
+  "include": [
+    "**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
