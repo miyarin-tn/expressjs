@@ -1,11 +1,20 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
 import cors from 'cors';
+import mongoose from 'mongoose';
 
 dotenv.config();
 
 const app: Application = express();
 const port: string | number = process.env.PORT || 8080;
+
+mongoose.connect(`${process.env.DATABASE_HOST}/${process.env.DATABASE_NAME}`, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true
+}).catch(err => {
+  console.log(err);
+})
 
 app.set('view engine', 'ejs');
 app.set('views', './views');
