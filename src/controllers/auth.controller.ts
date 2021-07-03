@@ -1,16 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Callback } from 'redis';
 import redis from '../redis';
+import _ from 'lodash';
 
-// models
 import { UserModel } from '../models/user.model';
+import { DEVICE } from '../constants/common';
 
 const AuthRegisterController = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password, username, firstname, lastname, phone, birthday, timezone, address } = req.body;
   const hash = await bcrypt.hash(password, 10);
   try {
-    const result = await UserModel.create({
+    await UserModel.create({
       email,
       password: hash,
       username,
@@ -21,7 +23,7 @@ const AuthRegisterController = async (req: Request, res: Response, next: NextFun
       timezone,
       address
     });
-    return res.status(201).send(result);
+    return res.status(201).send({ message: req.t('AUTH.ACCOUNT_CREATE_SUCCESS') });
   } catch(err) {
     return res.status(400).json(err);
   }
@@ -42,37 +44,75 @@ const AuthLoginController = async (req: Request, res: Response, next: NextFuncti
   if (!isSame) {
     return res.status(401).json({ message: req.t('AUTH.ACCOUNT_INCORECT') });
   }
-  const token = generateToken(user._id.toString());
-  return res.send({ ...token, user });
+  const token = generateToken(user._id.toString(), undefined, req.headers['user-agent']);
+  return res.send({ ...token, ...{ user: _.omit(JSON.parse(JSON.stringify(user)), ['password']) } });
 };
 
 const AuthRefreshController = async (req: Request, res: Response, next: NextFunction) => {
   // @ts-ignore
-  const token = generateToken(req.user);
+  const token = generateToken(req.user, req.token);
   return res.send(token);
 };
 
 const AuthLogoutController = async (req: Request, res: Response, next: NextFunction) => {
   const accessToken = req.headers.authorization?.split(' ')[1] || '';
   const decoded = jwt.decode(accessToken, { json: true });
-  // remove refresh token
   // @ts-ignore
-  await redis.del(decoded.user);
-  // save access token to blacklist
-  // @ts-ignore
-  redis.set('BL_' + decoded.user, accessToken);
+  const userId = decoded.user;
+  if (req.body.device === DEVICE.ALL) {
+    redisFindInList(userId, async (err, data) => {
+      await redis.del(`AC_${userId}`);
+      redis.lpush(`BL_${userId}`, data);
+    });
+  } else if (req.body.device === DEVICE.OTHER && !req.body.token) {
+    redisFindInList(userId, async (err, data) => {
+      const tokenIndex = data.indexOf(accessToken);
+      data.splice(tokenIndex, 1);
+      await redis.del(`AC_${userId}`);
+      await redis.lpush(`AC_${userId}`, accessToken);
+      redis.lpush(`BL_${userId}`, data);
+    });
+  } else if (req.body.device === DEVICE.OTHER && req.body.token) {
+    redisFindInList(userId, async (err, data) => {
+      await redis.lrem(`AC_${userId}`, 0, req.body.token);
+      redis.lpush(`BL_${userId}`, req.body.token);
+    });
+  } else {
+    // remove refresh token
+    await redis.lrem(`AC_${userId}`, 0, accessToken);
+    // save access token to blacklist
+    redis.lpush(`BL_${userId}`, accessToken);
+  }
   return res.send({ message: req.t('AUTH.LOGOUT_SUCCESS') });
 };
 
-const generateToken = (userId: string) => {
-  const accessToken = jwt.sign({ user: userId }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
-  const refreshToken = jwt.sign({ user: userId }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
-  redis.get(userId.toString(), (err, data) => {
+const generateToken = (userId: string, token?: string, userAgent?: string) => {
+  const accessToken = jwt.sign({ user: userId, userAgent }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
+  const refreshToken = jwt.sign({ user: userId, userAgent }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
+  if (token) {
+    redis.lrange(`RE_${userId}`, 0, -1, (err, data) => {
+      if (err) throw err;
+      if (!_.isEmpty(data)) {
+        redis.lrem(`RE_${userId}`, 0, token);
+      }
+    });
+  }
+  redis.lpush(`AC_${userId}`, accessToken);
+  redis.lpush(`RE_${userId}`, refreshToken);
+  if (!userAgent) {
+    return { accessToken, refreshToken };
+  }
+  return { accessToken, refreshToken, userAgent };
+};
+
+const redisFindInList = (userId: string, callback: Callback<string[]>) => {
+  redis.lrange(`AC_${userId}`, 0, -1, async (err, data) => {
     if (err) throw err;
-    redis.set(userId, JSON.stringify({ refreshToken }));
+    if (!_.isEmpty(data)) {
+      callback(err, data);
+    }
   });
-  return { accessToken, refreshToken };
-}
+};
 
 module.exports = {
   AuthRegisterController,

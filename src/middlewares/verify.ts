@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import redis from '../redis';
+import _ from 'lodash';
 
 const VerifyAccessToken = (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -9,9 +10,9 @@ const VerifyAccessToken = (req: Request, res: Response, next: NextFunction) => {
     // @ts-ignore
     req.user = decoded.user;
     // @ts-ignore
-    redis.get('BL_' + decoded.user, (err, data) => {
+    redis.lrange(`BL_${decoded.user}`, 0, -1, (err, data) => {
       if (err) throw err;
-      if (data === accessToken) {
+      if (data.includes(accessToken)) {
         return res.status(401).json({ message: req.t('AUTH.TOKEN_BLACKLISTED') });
       }
       next();
@@ -34,12 +35,14 @@ const VerifyRefreshToken = (req: Request, res: Response, next: NextFunction) => 
     // @ts-ignore
     req.user = decoded.user;
     // @ts-ignore
-    redis.get(decoded.user, (err, data) => {
+    req.token = refreshTokenVerify;
+    // @ts-ignore
+    redis.lrange(`RE_${decoded.user}`, 0, -1, (err, data) => {
       if (err) throw err;
-      if (!data) {
+      if (_.isEmpty(data)) {
         return res.status(403).json({ message: req.t('AUTH.FORBIDDEN') });
       }
-      if (JSON.parse(data).refreshToken !== refreshTokenVerify) {
+      if (!data.includes(refreshTokenVerify)) {
         return res.status(401).json({ message: req.t('AUTH.UNAUTHORIZED') });
       }
       next();

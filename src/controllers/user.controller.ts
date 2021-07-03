@@ -5,7 +5,7 @@ import { UserModel } from '../models/user.model';
 import { STATUS } from '../constants/common';
 
 const UserListController = async (req: Request, res: Response, next: NextFunction) => {
-  const result = await UserModel.find({}).exec();
+  const result = await UserModel.find({}).select('-password').exec();
   if (_.isEmpty(result)) {
     return res.status(404).json({ message: req.t('AUTH.NO_ACCOUNT_FOUND') });
   }
@@ -13,7 +13,7 @@ const UserListController = async (req: Request, res: Response, next: NextFunctio
 };
 
 const UserDetailController = async (req: Request, res: Response, next: NextFunction) => {
-  const result = await UserModel.findById(req.params.user_id).exec();
+  const result = await UserModel.findById(req.params.user_id).select('-password').exec();
   if (!result) {
     return res.status(404).json({ message: req.t('AUTH.ACCOUNT_NOT_FOUND') });
   }
