@@ -1,12 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
+import axios from 'axios';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Callback } from 'redis';
 import redis from '../redis';
+import JwksRsa from 'jwks-rsa';
+// import appleSignin from 'apple-signin-auth';
+import { OAuth2Client } from 'google-auth-library';
 import _ from 'lodash';
 
 import { UserModel } from '../models/user.model';
-import { DEVICE } from '../constants/common';
+import { SocialType } from '@/types/user';
+import { DEVICE, STATUS } from '../constants/common';
+
+const jwksClient = JwksRsa({
+  jwksUri: 'https://appleid.apple.com/auth/keys'
+});
+const clientGG = new OAuth2Client(process.env.GG_CLIENT_ID);
 
 const AuthRegisterController = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password, username, firstname, lastname, phone, birthday, timezone, address } = req.body;
@@ -46,6 +56,95 @@ const AuthLoginController = async (req: Request, res: Response, next: NextFuncti
   }
   const token = generateToken(user._id.toString(), undefined, req.headers['user-agent']);
   return res.send({ ...token, ...{ user: _.omit(JSON.parse(JSON.stringify(user)), ['password']) } });
+};
+
+const AuthSocialController = async (req: Request, res: Response, next: NextFunction) => {
+  const { type, token, firstname, lastname } = req.body;
+  if (type.toLowerCase() === 'apple') {
+    const decoded = jwt.decode(token, { complete: true });
+    const kid = decoded?.header.kid;
+    const key = await jwksClient.getSigningKey(kid);
+    const appPublicKey = key.getPublicKey();
+    try {
+      const verify = jwt.verify(token, appPublicKey);
+      const result: SocialType = {
+        // @ts-ignore
+        id: verify.sub,
+        // @ts-ignore
+        email: verify.email || `${verify.sub}@yuulocal.com`,
+        // @ts-ignore
+        username: verify.sub,
+        firstname: firstname || req.body.firstname || 'Anonymous',
+        lastname: lastname || req.body.lastname || 'User',
+        timezone: req.body.timezone
+      };
+      checkInDatabaseAndResponse(req, res, 'appleId', result);
+    } catch(err) {
+      return res.status(401).json({ message: req.t('AUTH.AUTHENTICATION_FAIL', { social: 'Apple' }) });
+    }
+  } else if (type.toLowerCase() === 'facebook') {
+    try {
+      let response = await axios.get(`https://graph.facebook.com/oauth/access_token?client_id=${process.env.FB_CLIENT_ID}&client_secret=${process.env.FB_CLIENT_SECRET}&grant_type=client_credentials`)
+      const appToken = response.data.access_token;
+      response = await axios.get(`https://graph.facebook.com/debug_token?input_token=${token}&access_token=${appToken}`);
+      const { user_id } = response.data.data;
+      response = await axios.get(`https://graph.facebook.com/v11.0/${user_id}?fields=id,email,first_name,last_name,picture&access_token=${appToken}`);
+      const { id, email, first_name, last_name, picture } = response.data;
+      const result: SocialType = {
+        id: id,
+        email: email || `${id}@yuulocal.com`,
+        username: id,
+        firstname: first_name,
+        lastname: last_name,
+        avatar: picture.data.url,
+        timezone: req.body.timezone
+      };
+      checkInDatabaseAndResponse(req, res, 'facebookId', result);
+    } catch(err) {
+      return res.status(401).json({ message: req.t('AUTH.AUTHENTICATION_FAIL', { social: 'Facebook' }) });
+    }
+  } else if (type.toLowerCase() === 'google') {
+    try {
+      const prePayload = await clientGG.verifyIdToken({
+        idToken: token,
+        audience: process.env.GG_CLIENT_ID
+      });
+      const preResult = prePayload.getPayload();
+      const result: SocialType = {
+        // @ts-ignore
+        id: preResult.sub,
+        // @ts-ignore
+        email: preResult.email || `${preResult.sub}@yuulocal.com`,
+        // @ts-ignore
+        username: preResult.sub,
+        // @ts-ignore
+        firstname: preResult.given_name,
+        // @ts-ignore
+        lastname: preResult.family_name,
+        // @ts-ignore
+        avatar: preResult.picture,
+        timezone: req.body.timezone
+      }
+      checkInDatabaseAndResponse(req, res, 'googleId', result);
+    } catch(err) {
+      return res.status(401).json({ message: req.t('AUTH.AUTHENTICATION_FAIL', { social: 'Google' }) });
+    };
+  }
+};
+
+const AuthCallbackController = async (req: Request, res: Response, next: NextFunction) => {
+  if (req.params.type_id === 'apple') {
+    if (!req.body.id_token) {
+      return res.status(401).json({ message: req.t('AUTH.AUTHENTICATION_FAIL', { social: 'Apple' }) });
+    } else {
+      if (!process.env.CLIENT_WEBSITE_AUTH_LINK) {
+        return res.send(req.body);
+      } else {
+        return res.redirect(`${process.env.CLIENT_WEBSITE_AUTH_LINK}?token=${req.body.id_token}`);
+      }
+    }
+  }
+  return res.status(400).json({ message: req.t('AUTH.NO_DATA_FROM_CALLBACK') });
 };
 
 const AuthRefreshController = async (req: Request, res: Response, next: NextFunction) => {
@@ -114,9 +213,50 @@ const redisFindInList = (userId: string, callback: Callback<string[]>) => {
   });
 };
 
+const checkInDatabaseAndResponse = async (req: Request, res: Response, field: string, data: SocialType) => {
+  const user = await UserModel.findOne({ [field]: data.id }).exec();
+  // create account if it is not exist
+  if (!user) {
+    try {
+      const userCheck = await UserModel.findOne({
+        $or: [
+          { email: data.email },
+          { username: data.username }
+        ]
+      }).exec();
+      if (userCheck) {
+        return res.status(422).json({ message: req.t('AUTH.ACCOUNT_ALREADY_USED') });
+      }
+      const hash = await bcrypt.hash(`${data.id}${new Date().getTime()}`, 10);
+      await UserModel.create({
+        email: data.email,
+        username: data.username,
+        password: hash,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        timezone: data.timezone,
+        [field]: data.id,
+        avatar: data.avatar,
+        status: STATUS[0]
+      });
+      const userReFind = await UserModel.findOne({ [field]: data.id }).exec();
+      // get data of user
+      const token = generateToken(data.id, undefined, req.headers['user-agent']);
+      return res.send({ ...token, ...{ user: _.omit(JSON.parse(JSON.stringify(userReFind)), ['password']) } });
+    } catch(err) {
+      return res.status(400).json(err);
+    }
+  }
+  // get data of user
+  const token = generateToken(data.id, undefined, req.headers['user-agent']);
+  return res.send({ ...token, ...{ user: _.omit(JSON.parse(JSON.stringify(user)), ['password']) } });
+}
+
 module.exports = {
   AuthRegisterController,
   AuthLoginController,
+  AuthSocialController,
+  AuthCallbackController,
   AuthRefreshController,
   AuthLogoutController
 };

@@ -68,7 +68,15 @@ const removeErrorUnnecessary = (arr: ValidationError[], fieldRemove: string): Va
   return newErrorsArray;
 };
 
+const SocialValidator = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.body.type) {
+    return res.status(400).json({ message: req.t('AUTH.TYPE_SOCIAL_REQUIRED') });
+  }
+  next();
+};
+
 module.exports = {
   RegisterValidator,
-  LoginValidator
+  LoginValidator,
+  SocialValidator
 };

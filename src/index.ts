@@ -117,6 +117,21 @@ app.get('/locales/:lng_id', (req: Request, res: Response, next: NextFunction) =>
     return res.status(404).json({ message: req.t('TRANSLATE.LANGUAGE_NOT_FOUND') });
   }
 });
+app.get('/apple-app-site-association', (req: Request, res: Response, next: NextFunction) => {
+  // res.set('Content-Type', 'application/pkcs7-mime');
+  // res.sendFile(path.join(__dirname, '/apple-app-site-association'));
+  res.send({
+    "applinks": {
+      "apps": [],
+      "details": [
+        {
+          "appID": "T24TNTNTNT.tn.yuudachi.yuu",
+          "paths": ["*"]
+        }
+      ]
+    }
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
