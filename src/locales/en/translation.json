@@ -1,2 +1,20 @@
 {
+  "AUTH": {
+    "ACCOUNT_INCORECT": "The email or password was not correct.",
+    "NO_ACCOUNT_FOUND": "Could not find any accounts.",
+    "ACCOUNT_NOT_FOUND": "User is not found.",
+    "EMAIL_REQUIRED": "Email is required.",
+    "EMAIL_INVALID": "Email is invalid.",
+    "EMAIL_ALREADY_USED": "Email already in use.",
+    "USERNAME_REQUIRED": "Username is required.",
+    "USERNAME_ALREADY_USED": "Username already in use.",
+    "PASSWORD_REQUIRED": "Password is required.",
+    "PASSWORD_INVALID": "Password must be more than 5 characters.",
+    "EMAIL_OR_USERNAME_REQUIRED": "Email or username is required.",
+    "USERNAME_OR_EMAIL_REQUIRED": "Username or email is required.",
+    "ACCOUNT_DELETED_SUCCESS": "Account deleted successfully."
+  },
+  "TRANSLATE": {
+    "LANGUAGE_NOT_FOUND": "This language is not found"
+  }
 }

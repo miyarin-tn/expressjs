@@ -52,7 +52,8 @@ app.use(i18nextMiddleware.handle(i18next));
 mongoose.connect(`${process.env.DATABASE_HOST}/${process.env.DATABASE_NAME}`, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  useCreateIndex: true
+  useCreateIndex: true,
+  useFindAndModify: false
 }).catch(err => {
   console.log(err);
 })
@@ -92,12 +93,18 @@ const corsOptionsDelegate = (req: Request, callback: any) => {
 app.use(cors(corsOptionsDelegate)); */
 app.use(cors());
 
+// routes
+const userRoute = require('./routes/user.route');
+const authRoute = require('./routes/auth.route');
+
 app.get('/', (req: Request, res: Response, next: NextFunction) => {
   return res.status(200).json({
     message: 'Thịnh Ngọc'
   });
 });
 
+app.use('/auth', authRoute);
+app.use('/user', userRoute);
 app.get('/locales/:lng_id', (req: Request, res: Response, next: NextFunction) => {
   if (!i18next.languages.includes(req.params.lng_id)) {
     return res.status(404).json({ message: req.t('TRANSLATE.LANGUAGE_NOT_FOUND') });

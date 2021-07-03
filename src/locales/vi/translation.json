@@ -1,2 +1,20 @@
 {
+  "AUTH": {
+    "ACCOUNT_INCORECT": "Email hoặc mật khẩu không chính xác.",
+    "NO_ACCOUNT_FOUND": "Không thể tìm thấy bất kỳ tài khoản nào.",
+    "ACCOUNT_NOT_FOUND": "Không tìm thấy người dùng.",
+    "EMAIL_REQUIRED": "Email không được trống.",
+    "EMAIL_INVALID": "Email không hợp lệ.",
+    "EMAIL_ALREADY_USED": "Email đã được sử dụng.",
+    "USERNAME_REQUIRED": "Tên người dùng không được trống.",
+    "USERNAME_ALREADY_USED": "Tên người dùng đã được sử dụng.",
+    "PASSWORD_REQUIRED": "Mật khẩu không được trống.",
+    "PASSWORD_INVALID": "Mật khẩu phải dài hơn 5 ký tự.",
+    "EMAIL_OR_USERNAME_REQUIRED": "Email hoặc tên người dùng không được trống.",
+    "USERNAME_OR_EMAIL_REQUIRED": "Tên người dùng hoặc email không được trống.",
+    "ACCOUNT_DELETED_SUCCESS": "Tài khoản được xóa thành công."
+  },
+  "TRANSLATE": {
+    "LANGUAGE_NOT_FOUND": "Không tìm thấy ngôn ngữ này"
+  }
 }
