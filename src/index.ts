@@ -1,12 +1,53 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import * as dotenv from 'dotenv';
 import cors from 'cors';
+import i18next from 'i18next';
+import i18nextMiddleware from 'i18next-http-middleware';
+import Backend from 'i18next-fs-backend';
+import fs from 'fs';
+import path from 'path';
 import mongoose from 'mongoose';
 
 dotenv.config();
 
+const options = {
+  // order and from where user language should be detected
+  order: [/*'path', 'session', */ 'querystring', 'header'],
+
+  // keys or params to lookup language from
+  lookupQuerystring: 'lng',
+  lookupHeader: 'accept-language',
+  lookupHeaderRegex: /(([a-z]{2})-?([A-Z]{2})?)\s*;?\s*(q=([0-9.]+))?/gi,
+  lookupSession: 'lng',
+  lookupPath: 'lng',
+  lookupFromPathIndex: 0,
+
+  // cache user language
+  caches: false, // ['cookie']
+
+  ignoreCase: true, // ignore case of detected language
+};
+i18next
+  .use(Backend)
+  .use(i18nextMiddleware.LanguageDetector)
+  .init({
+    // debug: true,
+    backend: {
+      // eslint-disable-next-line no-path-concat
+      loadPath: __dirname + '/locales/{{lng}}/{{ns}}.json',
+      // eslint-disable-next-line no-path-concat
+      addPath: __dirname + '/locales/{{lng}}/{{ns}}.missing.json'
+    },
+    fallbackLng: ['en', 'vi'],
+    preload: ['en', 'vi'],
+    saveMissing: true,
+    detection: options
+  })
+
 const app: Application = express();
 const port: string | number = process.env.PORT || 8080;
+
+app.use(i18nextMiddleware.handle(i18next));
 
 mongoose.connect(`${process.env.DATABASE_HOST}/${process.env.DATABASE_NAME}`, {
   useNewUrlParser: true,
@@ -55,6 +96,19 @@ app.get('/', (req: Request, res: Response, next: NextFunction) => {
   return res.status(200).json({
     message: 'Thịnh Ngọc'
   });
+});
+
+app.get('/locales/:lng_id', (req: Request, res: Response, next: NextFunction) => {
+  if (!i18next.languages.includes(req.params.lng_id)) {
+    return res.status(404).json({ message: req.t('TRANSLATE.LANGUAGE_NOT_FOUND') });
+  }
+  try {
+    let rawData = fs.readFileSync(path.resolve(__dirname, `locales/${req.params.lng_id}/translation.json`));
+    let translate = JSON.parse(rawData.toString());
+    return res.send(translate);
+  } catch (err) {
+    return res.status(404).json({ message: req.t('TRANSLATE.LANGUAGE_NOT_FOUND') });
+  }
 });
 
 app.listen(port, () => {
