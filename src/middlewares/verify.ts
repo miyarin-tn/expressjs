@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import redis from '../redis';
 
 const VerifyAccessToken = (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -7,7 +8,14 @@ const VerifyAccessToken = (req: Request, res: Response, next: NextFunction) => {
     const decoded = jwt.verify(accessToken, process.env.JWT_SECRET || 'SECRET');
     // @ts-ignore
     req.user = decoded.user;
-    next();
+    // @ts-ignore
+    redis.get('BL_' + decoded.user, (err, data) => {
+      if (err) throw err;
+      if (data === accessToken) {
+        return res.status(401).json({ message: req.t('AUTH.TOKEN_BLACKLISTED') });
+      }
+      next();
+    });
   } catch(err) {
     if (err.message === 'jwt expired') {
       return res.status(401).json({ message: req.t('AUTH.TOKEN_EXPIRED') });
@@ -23,10 +31,19 @@ const VerifyRefreshToken = (req: Request, res: Response, next: NextFunction) => 
   }
   try {
     const decoded = jwt.verify(refreshTokenVerify, process.env.JWT_SECRET || 'SECRET');
-    
-    const accessToken = jwt.sign({ sub: decoded.sub }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
-    const refreshToken = jwt.sign({ sub: decoded.sub }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
-    return res.send({ accessToken, refreshToken });
+    // @ts-ignore
+    req.user = decoded.user;
+    // @ts-ignore
+    redis.get(decoded.user, (err, data) => {
+      if (err) throw err;
+      if (!data) {
+        return res.status(403).json({ message: req.t('AUTH.FORBIDDEN') });
+      }
+      if (JSON.parse(data).refreshToken !== refreshTokenVerify) {
+        return res.status(401).json({ message: req.t('AUTH.UNAUTHORIZED') });
+      }
+      next();
+    });
   } catch(err) {
     if (err.message === 'jwt expired') {
       return res.status(401).json({ message: req.t('AUTH.TOKEN_EXPIRED') });

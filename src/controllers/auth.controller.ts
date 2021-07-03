@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import redis from '../redis';
 
 // models
 import { UserModel } from '../models/user.model';
@@ -41,17 +42,41 @@ const AuthLoginController = async (req: Request, res: Response, next: NextFuncti
   if (!isSame) {
     return res.status(401).json({ message: req.t('AUTH.ACCOUNT_INCORECT') });
   }
-  const accessToken = jwt.sign({ sub: user._id }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
-  const refreshToken = jwt.sign({ sub: user._id }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
-  return res.send({ accessToken, refreshToken, ...{ user } });
+  const token = generateToken(user._id.toString());
+  return res.send({ ...token, user });
 };
 
-const AuthLogoutController = (req: Request, res: Response, next: NextFunction) => {
+const AuthRefreshController = async (req: Request, res: Response, next: NextFunction) => {
+  // @ts-ignore
+  const token = generateToken(req.user);
+  return res.send(token);
+};
+
+const AuthLogoutController = async (req: Request, res: Response, next: NextFunction) => {
+  const accessToken = req.headers.authorization?.split(' ')[1] || '';
+  const decoded = jwt.decode(accessToken, { json: true });
+  // remove refresh token
+  // @ts-ignore
+  await redis.del(decoded.user);
+  // save access token to blacklist
+  // @ts-ignore
+  redis.set('BL_' + decoded.user, accessToken);
   return res.send({ message: req.t('AUTH.LOGOUT_SUCCESS') });
 };
+
+const generateToken = (userId: string) => {
+  const accessToken = jwt.sign({ user: userId }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
+  const refreshToken = jwt.sign({ user: userId }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
+  redis.get(userId.toString(), (err, data) => {
+    if (err) throw err;
+    redis.set(userId, JSON.stringify({ refreshToken }));
+  });
+  return { accessToken, refreshToken };
+}
 
 module.exports = {
   AuthRegisterController,
   AuthLoginController,
+  AuthRefreshController,
   AuthLogoutController
 };

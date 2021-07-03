@@ -1,7 +1,9 @@
 {
   "AUTH": {
     "UNAUTHORIZED": "Không được phép.",
+    "FORBIDDEN": "Không có quyền truy cập.",
     "TOKEN_EXPIRED": "Token đã hết hạn.",
+    "TOKEN_BLACKLISTED": "Token nằm trong danh sách đen.",
     "LOGOUT_SUCCESS": "Đăng xuất thành công.",
     "ACCOUNT_INCORECT": "Email hoặc mật khẩu không chính xác.",
     "NO_ACCOUNT_FOUND": "Không thể tìm thấy bất kỳ tài khoản nào.",

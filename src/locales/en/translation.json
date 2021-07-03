@@ -1,7 +1,9 @@
 {
   "AUTH": {
     "UNAUTHORIZED": "Unauthorized.",
+    "FORBIDDEN": "Forbidden.",
     "TOKEN_EXPIRED": "Token has expired.",
+    "TOKEN_BLACKLISTED": "Token is blacklisted.",
     "LOGOUT_SUCCESS": "Logout successfully.",
     "ACCOUNT_INCORECT": "The email or password was not correct.",
     "NO_ACCOUNT_FOUND": "Could not find any accounts.",
