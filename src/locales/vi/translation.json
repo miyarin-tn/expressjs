@@ -1,5 +1,8 @@
 {
   "AUTH": {
+    "UNAUTHORIZED": "Không được phép.",
+    "TOKEN_EXPIRED": "Token đã hết hạn.",
+    "LOGOUT_SUCCESS": "Đăng xuất thành công.",
     "ACCOUNT_INCORECT": "Email hoặc mật khẩu không chính xác.",
     "NO_ACCOUNT_FOUND": "Không thể tìm thấy bất kỳ tài khoản nào.",
     "ACCOUNT_NOT_FOUND": "Không tìm thấy người dùng.",
@@ -16,5 +19,8 @@
   },
   "TRANSLATE": {
     "LANGUAGE_NOT_FOUND": "Không tìm thấy ngôn ngữ này"
+  },
+  "UNKNOWN": {
+    "ERROR": "Đã xảy ra lỗi không xác định."
   }
 }

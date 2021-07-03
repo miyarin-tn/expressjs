@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 // models
 import { UserModel } from '../models/user.model';
@@ -40,10 +41,17 @@ const AuthLoginController = async (req: Request, res: Response, next: NextFuncti
   if (!isSame) {
     return res.status(401).json({ message: req.t('AUTH.ACCOUNT_INCORECT') });
   }
-  return res.send(user);
+  const accessToken = jwt.sign({ sub: user._id }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h' });
+  const refreshToken = jwt.sign({ sub: user._id }, process.env.JWT_SECRET || 'SECRET', { expiresIn: process.env.JWT_REFRESH_EXPIRES || '1d' });
+  return res.send({ accessToken, refreshToken, ...{ user } });
+};
+
+const AuthLogoutController = (req: Request, res: Response, next: NextFunction) => {
+  return res.send({ message: req.t('AUTH.LOGOUT_SUCCESS') });
 };
 
 module.exports = {
   AuthRegisterController,
-  AuthLoginController
+  AuthLoginController,
+  AuthLogoutController
 };

@@ -1,5 +1,8 @@
 {
   "AUTH": {
+    "UNAUTHORIZED": "Unauthorized.",
+    "TOKEN_EXPIRED": "Token has expired.",
+    "LOGOUT_SUCCESS": "Logout successfully.",
     "ACCOUNT_INCORECT": "The email or password was not correct.",
     "NO_ACCOUNT_FOUND": "Could not find any accounts.",
     "ACCOUNT_NOT_FOUND": "User is not found.",
@@ -16,5 +19,8 @@
   },
   "TRANSLATE": {
     "LANGUAGE_NOT_FOUND": "This language is not found"
+  },
+  "UNKNOWN": {
+    "ERROR": "An unknown error has occurred."
   }
 }

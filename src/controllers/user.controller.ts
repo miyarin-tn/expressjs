@@ -21,11 +21,13 @@ const UserDetailController = async (req: Request, res: Response, next: NextFunct
 };
 
 const UserDeactiveController = async (req: Request, res: Response, next: NextFunction) => {
-  const result = await UserModel.findOneAndUpdate({ _id: req.params.user_id, status: { $eq: STATUS[0] } }, { status: STATUS[2] }).exec();
-  if (!result) {
-    return res.status(404).json({ message: req.t('AUTH.ACCOUNT_NOT_FOUND') });
+  try {
+    // @ts-ignore
+    await UserModel.findOneAndUpdate({ _id: req.user, status: { $eq: STATUS[0] } }, { status: STATUS[2] }).exec();
+    return res.send({ message: req.t('AUTH.ACCOUNT_DELETED_SUCCESS') });
+  } catch {
+    return res.status(404).json({ message: req.t('UNKNOWN.ERROR') });
   }
-  return res.send({ message: req.t('AUTH.ACCOUNT_DELETED_SUCCESS') });
 };
 
 module.exports = {
