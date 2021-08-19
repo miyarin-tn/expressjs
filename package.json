@@ -9,7 +9,8 @@
     "build": "tsc -p . && rm -rf dist && mv ./tmp/dist ./dist && rm -rf ./tmp",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate:up": "migrate-mongo up -f ./src/configs/migrate-mongo-config.ts",
-    "migrate:down": "migrate-mongo down -f ./src/configs/migrate-mongo-config.ts"
+    "migrate:down": "migrate-mongo down -f ./src/configs/migrate-mongo-config.ts",
+    "seeder": "node ./src/configs/seeding-mongo-config.ts"
   },
   "author": "Thinh Nguyen",
   "license": "ISC",
@@ -28,6 +29,7 @@
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^2.0.3",
     "lodash": "^4.17.20",
+    "mongo-seeding": "^3.7.0",
     "mongoose": "^5.12.14",
     "redis": "^3.1.2"
   },
